@@ -1,0 +1,52 @@
+name: 'air_ci_project'
+version: '1.0.0'
+config-version: 2
+
+# Fait le lien avec le profil de connexion
+profile: 'air_ci_profile'
+
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+# Créer le schéma et monter le fichier Excel dans DuckDB avant l'exécution des modèles
+on-run-start:
+  - "INSTALL spatial;"
+  - "LOAD spatial;"
+  - "CREATE SCHEMA IF NOT EXISTS excel_source;"
+  - "CREATE OR REPLACE VIEW excel_source.Airports AS SELECT * FROM st_read('C:/Users/Laptop Studio/Documents/Air Ci Project/Donn.xlsx', layer='Airports');"
+  - "CREATE OR REPLACE VIEW excel_source.Routes AS SELECT * FROM st_read('C:/Users/Laptop Studio/Documents/Air Ci Project/Donn.xlsx', layer='Routes');"
+  - "CREATE OR REPLACE VIEW excel_source.Customers AS SELECT * FROM st_read('C:/Users/Laptop Studio/Documents/Air Ci Project/Donn.xlsx', layer='Customers');"
+  - "CREATE OR REPLACE VIEW excel_source.Flights AS SELECT * FROM st_read('C:/Users/Laptop Studio/Documents/Air Ci Project/Donn.xlsx', layer='Flights');"
+  - "CREATE OR REPLACE VIEW excel_source.Bookings AS SELECT * FROM st_read('C:/Users/Laptop Studio/Documents/Air Ci Project/Donn.xlsx', layer='Bookings');"
+  - "CREATE OR REPLACE VIEW excel_source.Flight_costs AS SELECT * FROM st_read('C:/Users/Laptop Studio/Documents/Air Ci Project/Donn.xlsx', layer='Flight_costs');"
+  - "CREATE OR REPLACE VIEW excel_source.Customer_service_tickets AS SELECT * FROM st_read('C:/Users/Laptop Studio/Documents/Air Ci Project/Donn.xlsx', layer='Customer_service_tickets');"
+  - "CREATE OR REPLACE VIEW excel_source.Ancillary_details AS SELECT * FROM st_read('C:/Users/Laptop Studio/Documents/Air Ci Project/Donn.xlsx', layer='Ancillary_details');"
+  - "CREATE OR REPLACE VIEW excel_source.Competitor_context AS SELECT * FROM st_read('C:/Users/Laptop Studio/Documents/Air Ci Project/Donn.xlsx', layer='Competitor_context');"
+  - "CREATE OR REPLACE VIEW excel_source.Weather_impact AS SELECT * FROM st_read('C:/Users/Laptop Studio/Documents/Air Ci Project/Donn.xlsx', layer='Weather_impact');"
+  - "CREATE OR REPLACE VIEW excel_source.Cargo_operations AS SELECT * FROM st_read('C:/Users/Laptop Studio/Documents/Air Ci Project/Donn.xlsx', layer='Cargo_operations');"
+  - "CREATE OR REPLACE VIEW excel_source.Loyalty_activity AS SELECT * FROM st_read('C:/Users/Laptop Studio/Documents/Air Ci Project/Donn.xlsx', layer='Loyalty_activity');"
+
+models:
+  air_ci_project:
+    staging:
+      +materialized: view
+      +schema: staging
+
+    # Rétablissement de l'arborescence standard sous le dossier marts
+    marts:
+      +materialized: table
+      +schema: marts
+
+      dimensions:
+        +materialized: table
+
+      facts:
+        +materialized: table

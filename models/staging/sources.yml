@@ -1,0 +1,52 @@
+version: 2
+
+sources:
+  - name: excel_source
+    tables:
+      - name: Airports
+        external:
+          location: "st_read('C:/Users/Laptop Studio/Documents/Air Ci Project/Donn.xlsx', layer='Airports')"
+
+      - name: Routes
+        external:
+          location: "st_read('C:/Users/Laptop Studio/Documents/Air Ci Project/Donn.xlsx', layer='Routes')"
+
+      - name: Customers
+        external:
+          location: "st_read('C:/Users/Laptop Studio/Documents/Air Ci Project/Donn.xlsx', layer='Customers')"
+
+      - name: Flights
+        external:
+          location: "st_read('C:/Users/Laptop Studio/Documents/Air Ci Project/Donn.xlsx', layer='Flights')"
+
+      - name: Bookings
+        external:
+          location: "st_read('C:/Users/Laptop Studio/Documents/Air Ci Project/Donn.xlsx', layer='Bookings')"
+
+      - name: Flight_costs
+        external:
+          location: "st_read('C:/Users/Laptop Studio/Documents/Air Ci Project/Donn.xlsx', layer='Flight_costs')"
+
+      - name: Customer_service_tickets
+        external:
+          location: "st_read('C:/Users/Laptop Studio/Documents/Air Ci Project/Donn.xlsx', layer='Customer_service_tickets')"
+
+      - name: Ancillary_details
+        external:
+          location: "st_read('C:/Users/Laptop Studio/Documents/Air Ci Project/Donn.xlsx', layer='Ancillary_details')"
+
+      - name: Competitor_context
+        external:
+          location: "st_read('C:/Users/Laptop Studio/Documents/Air Ci Project/Donn.xlsx', layer='Competitor_context')"
+
+      - name: Weather_impact
+        external:
+          location: "st_read('C:/Users/Laptop Studio/Documents/Air Ci Project/Donn.xlsx', layer='Weather_impact')"
+
+      - name: Cargo_operations
+        external:
+          location: "st_read('C:/Users/Laptop Studio/Documents/Air Ci Project/Donn.xlsx', layer='Cargo_operations')"
+
+      - name: Loyalty_activity
+        external:
+          location: "st_read('C:/Users/Laptop Studio/Documents/Air Ci Project/Donn.xlsx', layer='Loyalty_activity')"

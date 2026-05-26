@@ -1,0 +1,28 @@
+# Base de données locale
+air_ci.db
+*.db
+
+# Données sources (confidentielles)
+*.xlsx
+*.csv
+~$*.xlsx
+
+# Environnement Python
+superset-env/
+__pycache__/
+*.pyc
+*.pyo
+.env
+
+# dbt generated
+target/
+dbt_packages/
+logs/
+
+# Config personnelle
+profiles.yml
+claude_desktop_config.json
+
+# OS files
+.DS_Store
+Thumbs.db

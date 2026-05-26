@@ -1,0 +1,185 @@
+# models/marts/semantic_layer.yml
+version: 2
+
+metrics:
+
+  # =========================================
+  # KPI 1 — LOAD FACTOR
+  # =========================================
+  - name: load_factor
+    label: "Taux de remplissage (%)"
+    description: >
+      Pourcentage de sièges occupés par rapport à la capacité totale.
+      Formule : (nb_bookings / seat_capacity) * 100
+      Seuil : < 60% = sous-rempli, > 85% = bien rempli
+    type: simple
+    type_params:
+      measure: load_factor_pct
+    model: ref('fct_Flights')
+
+  # =========================================
+  # KPI 2 — ROUTE MARGIN USD
+  # =========================================
+  - name: route_margin
+    label: "Marge par vol (USD)"
+    description: >
+      Revenu total moins coûts opérationnels.
+      Formule : total_revenue_usd - total_cost_usd
+      Positif = rentable, Négatif = en perte
+    type: simple
+    type_params:
+      measure: flight_margin_usd
+    model: ref('fct_Flights')
+
+  # =========================================
+  # KPI 3 — ROUTE MARGIN PCT
+  # =========================================
+  - name: route_margin_pct
+    label: "Marge par vol (%)"
+    description: >
+      Marge exprimée en pourcentage des coûts.
+      Formule : (revenue - costs) / costs * 100
+      Benchmark : > 10% = sain, < 0% = en perte
+    type: simple
+    type_params:
+      measure: flight_margin_pct
+    model: ref('fct_Flights')
+
+  # =========================================
+  # KPI 4 — YIELD
+  # =========================================
+  - name: yield
+    label: "Yield (USD/km/pax)"
+    description: >
+      Revenu ticket par kilomètre par passager.
+      Formule : ticket_revenue / distance_km / nb_passengers
+      Indicateur clé de performance tarifaire.
+    type: simple
+    type_params:
+      measure: yield_usd_per_km
+    model: ref('fct_Flights')
+
+  # =========================================
+  # KPI 5 — DELAY RATE
+  # =========================================
+  - name: delay_rate
+    label: "Taux de retard (%)"
+    description: >
+      Pourcentage de vols retardés de plus de 15 minutes.
+      Seuil IATA : > 20% = problème opérationnel
+    type: ratio
+    type_params:
+      numerator: nb_delayed_flights
+      denominator: nb_flights
+    model: ref('fct_Flights')
+
+  # =========================================
+  # KPI 6 — CANCELLATION RATE
+  # =========================================
+  - name: cancellation_rate
+    label: "Taux d'annulation (%)"
+    description: >
+      Pourcentage de vols annulés sur le total programmé.
+      Seuil critique : > 5% = problème sérieux
+    type: ratio
+    type_params:
+      numerator: nb_cancelled_flights
+      denominator: nb_flights
+    model: ref('fct_Flights')
+
+  # =========================================
+  # KPI 7 — ANCILLARY ATTACH RATE
+  # =========================================
+  - name: ancillary_attach_rate
+    label: "Taux ancillaire (%)"
+    description: >
+      Pourcentage de bookings avec achat ancillaire.
+      Benchmark airline : objectif 20-30%
+      Inclut : bagages, sièges premium, repas
+    type: simple
+    type_params:
+      measure: ancillary_revenue_pct
+    model: ref('fct_Bookings')
+
+  # =========================================
+  # KPI 8 — REPEAT BOOKING RATE
+  # =========================================
+  - name: repeat_booking_rate
+    label: "Taux de réachat (%)"
+    description: >
+      Pourcentage de bookings par clients ayant déjà volé.
+      Indicateur clé de fidélisation.
+    type: simple
+    type_params:
+      measure: is_repeat_customer
+    model: ref('fct_Bookings')
+
+  # =========================================
+  # KPI 9 — CUSTOMER SENTIMENT SCORE
+  # =========================================
+  - name: customer_sentiment_score
+    label: "Score de satisfaction"
+    description: >
+      Score moyen de sentiment des tickets support.
+      Echelle : -1 (très négatif) à +1 (très positif)
+      Calculé via NLP sur commentaires clients en français.
+    type: simple
+    type_params:
+      measure: sentiment_score
+    model: ref('fct_tickets')
+
+  # =========================================
+  # KPI 10 — CUSTOMER LIFETIME VALUE
+  # =========================================
+  - name: customer_lifetime_value
+    label: "Valeur client (USD)"
+    description: >
+      Revenu total généré par client sur toute sa relation.
+      Formule : sum(total_revenue_usd) par customer_id
+      Utilisé pour identifier les clients haute valeur à risque.
+    type: simple
+    type_params:
+      measure: total_revenue_usd
+    model: ref('fct_Bookings')
+
+  # =========================================
+  # KPI 11 — RASK
+  # =========================================
+  - name: rask
+    label: "RASK (Revenue/Seat/Km)"
+    description: >
+      Revenu par siège disponible par kilomètre.
+      Formule : ticket_revenue / (seat_capacity * distance_km)
+      Métrique standard industrie aérienne.
+    type: simple
+    type_params:
+      measure: rask
+    model: ref('fct_Flights')
+
+  # =========================================
+  # KPI 12 — CASK
+  # =========================================
+  - name: cask
+    label: "CASK (Cost/Seat/Km)"
+    description: >
+      Coût par siège disponible par kilomètre.
+      Formule : total_cost / (seat_capacity * distance_km)
+      Si RASK > CASK → route rentable
+      Si RASK < CASK → route en perte
+    type: simple
+    type_params:
+      measure: cask
+    model: ref('fct_Flights')
+
+  # =========================================
+  # KPI 13 — LOYALTY ENGAGEMENT
+  # =========================================
+  - name: loyalty_engagement_score
+    label: "Score engagement fidélité"
+    description: >
+      Miles accumulés par client dans le programme fidélité.
+      Niveaux : inactive=0, low < 1000, medium < 10000, high >= 10000
+    type: simple
+    type_params:
+      measure: total_miles
+    model: ref('dim_Customers')
