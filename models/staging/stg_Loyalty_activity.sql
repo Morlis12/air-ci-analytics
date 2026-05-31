@@ -98,7 +98,6 @@ renamed as (
             else                                     'low'
         end                                                         as miles_volume_category,
 
-        -- window functions par customer
         -- total miles cumulés du client
         sum(miles_amount::integer) over (
             partition by customer_id

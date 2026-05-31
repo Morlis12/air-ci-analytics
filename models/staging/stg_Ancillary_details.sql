@@ -26,8 +26,6 @@ renamed as (
         -- COLONNES CALCULÉES
         -- =========================================
 
-        -- catégorie normalisée pour les marts
-        -- (les noms peuvent varier dans l'Excel)
         case
             when lower(item_category::varchar) like '%bagage%'
             then 'baggage'

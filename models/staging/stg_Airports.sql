@@ -1,6 +1,6 @@
 -- models/staging/stg_airports.sql
 with source as (
-    -- dbt va automatiquement savoir qu'il doit lire l'onglet 'Airports' dans Donn.xlsx
+    -- dbt va automatiquement lire l'onglet 'Airports' dans Donn.xlsx
     select * from {{ source('excel_source', 'Airports') }}
 ),
 
@@ -38,7 +38,6 @@ renamed as (
             else 'Unknown'
         end                                                 as continent,
 
-        -- ✅ CORRIGÉ : règle métier explicite
         -- un aéroport hors Côte d'Ivoire est forcément international
         -- pour une airline basée à ABJ
         case
