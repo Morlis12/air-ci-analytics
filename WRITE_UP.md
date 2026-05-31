@@ -1,230 +1,207 @@
 # Write-Up — Air CI Analytics Engineering Challenge
 
+## Executive Summary
+
+This project delivers a full analytics engineering pipeline
+for Air CI, a fictional airline based in Abidjan (ABJ),
+Côte d'Ivoire. The pipeline covers data ingestion from
+Excel, transformation via dbt, dimensional modeling,
+a decision-oriented dashboard in Power BI, and an
+agentic AI interface through a custom MCP Server
+connected to Claude Desktop.
+
+---
+
 ## 1. Assumptions
 
-### Données
-- Les données couvrent la période 2024-2025 pour une airline fictive
-  basée à Abidjan (ABJ), Côte d'Ivoire
-- 12 routes opérées : 3 domestiques, 8 régionales, 1 internationale (Paris)
-- Le sentiment score des tickets est pré-calculé via NLP externe
-- La date dans Flight_costs = date du vol concerné (clé composite)
-- Les coûts sont en USD pour uniformité
+### Data
+- Data covers fiscal year 2024–2025 for a fictional
+  West African regional airline (hub: ABJ)
+- 12 routes operated: 3 domestic, 8 regional, 1 international
+  (ABJ–CDG)
+- Sentiment scores in Customer_service_tickets are
+  pre-calculated by an external NLP system and provided
+  as-is in the source data (range: -1 to +1)
+- Flight_costs table includes flight_date and route_id
+  columns to form a composite key with flight_id,
+  ensuring unambiguous cost attribution per flight
+- All monetary values are expressed in USD for consistency
 
-### Modélisation
-- Star Schema choisi vs Data Vault car :
-  → Optimal pour les performances analytiques de DuckDB
-  → Structure simple et lisible pour le MCP Server
-  → Adapté à un volume de données moyen (< 1M lignes)
-  → Facilite les requêtes Superset/Power BI
+### Modeling
+Star Schema was chosen over Data Vault because:
+- DuckDB is optimized for star-schema analytical queries
+- Simpler structure improves readability for the MCP Server
+- Data volume (< 1M rows) does not require Data Vault
+  auditability or historization overhead
+- Power BI handles star schemas natively and efficiently
 
-### Seuils métier
-- Load Factor seuil : 60% (sous-rempli) / 85% (bien rempli)
-- Délai significatif : >= 15 minutes (standard IATA)
-- SLA tickets : 3 jours maximum
-- Client inactif : > 180 jours sans vol
-- Client à risque : sentiment < -0.3 OU tickets critiques >= 1
+### Business thresholds
+All thresholds are grounded in industry standards:
+
+| Metric | Threshold | Source |
+|---|---|---|
+| Significant delay | >= 15 min | IATA standard |
+| Low load factor | < 60% | Airline industry benchmark |
+| High load factor | >= 85% | Airline industry benchmark |
+| Ticket SLA | 3 days | Customer service standard |
+| Inactive customer | > 180 days | CRM industry standard |
+| At-risk customer | sentiment < -0.3 OR critical tickets >= 1 | Business rule |
+| Ancillary attach rate target | 20–30% | Airline industry benchmark |
 
 ---
 
 ## 2. Architecture
-COUCHE 1 — SOURCES
-Excel (Donn.xlsx) → 12 onglets → vues DuckDB via st_read()
-COUCHE 2 — STAGING (dbt views)
-12 modèles stg_*.sql
-→ Nettoyage, cast, nullif, trim
-→ Flags qualité (is_id_missing, is_fk_missing...)
-→ Colonnes calculées métier
-→ Détection mots clés NLP (tickets)
-COUCHE 3 — MARTS (dbt tables)
-3 dimensions : dim_date, dim_routes, dim_customers
-4 facts : fct_flights, fct_bookings, fct_tickets,
-mart_decision_layer
-COUCHE 4 — SEMANTIC LAYER
-13 KPIs définis dans semantic_layer.yml
-(load_factor, yield, RASK, CASK, CLV...)
-COUCHE 5 — ONTOLOGIE
-mart_decision_layer applique des règles d'inférence :
-→ 6 labels routes (GrowthOpportunity, StrategicUnderperformer...)
-→ 6 labels clients (HighValueAtRisk, PremiumUpgradeCandidate...)
-→ Recommandations actionnables par entité
-COUCHE 6 — EXPOSITION
-Power BI : dashboard 4 pages via ODBC DuckDB
-MCP Server : 8 outils Python exposant les marts à l'IA
 
----
-
-## 3. Intégration données non structurées
-
-Les commentaires clients (Customer_service_tickets) sont traités via :
-
-### Approche 1 — Sentiment Score (pré-calculé)
-sentiment_score : -1 à +1
-→ Fourni dans les données source
-→ Calculé externement via NLP multilingue
-→ Catégorisé en : very_negative, negative, neutral, positive
-
-### Approche 2 — Détection mots clés SQL
-```sql
--- 10 catégories de plaintes détectées via LIKE
-has_delay_keyword       → retard, retardé, correspondance
-has_baggage_keyword     → bagage, valise, sac de voyage
-has_refund_keyword      → remboursement, débité
-has_cancellation_keyword→ annulé, annulation
-has_overbooking_keyword → surréservation, refusé l'embarquement
-has_meal_keyword        → repas, immangeable, végétarien
-has_seat_keyword        → siège, hublot, sièges sales
-has_comfort_keyword     → climatisation, insupportable
-has_digital_keyword     → application mobile, site web
-has_staff_keyword       → personnel, désagréable
-```
-
-### Approche 3 — Corrélation structuré/non-structuré
-is_delay_complaint_confirmed :
-→ Le ticket parle de retard ET le vol était retardé
-→ Valide la cohérence des données
-is_operational_delay :
-→ Retard non expliqué par la météo
-→ Croise fct_flights + stg_weather_impact
-
----
-
-## 4. Limitations
-
-### Techniques
-- Python 3.14 incompatible avec Superset → utilisation Power BI
-- dbt-fusion (preview) → syntaxe légèrement différente de dbt standard
-- Semantic Layer non validé en local (nécessite dbt Cloud)
-
-### Données
-- Load Factor moyen faible (16%) → données partielles ou période courte
-- Sentiment pré-calculé → pas de NLP custom développé
-- Pas de données historiques longues → tendances limitées
-- Cargo uniquement sur 3 vols → échantillon insuffisant
-
-### Modélisation
-- Star Schema → pas d'historisation (pas de SCD Type 2)
-- Pas de tests dbt formels (dbt test)
-- mart_decision_layer → règles ontologiques fixes (pas de ML)
-
----
-
-## 5. Next Steps
-
-### Court terme
-
-Connecter MCP Server à Claude.ai via claude_desktop_config.json
-Ajouter dbt tests (unique, not_null, accepted_values)
-Implémenter SCD Type 2 sur dim_customers pour l'historisation
-Enrichir le NLP avec un modèle CamemBERT (français)
-
-
-### Moyen terme
-
-Ajouter des données temps réel (API météo, prix concurrents)
-Construire un modèle de prédiction churn (scikit-learn)
-Automatiser le pipeline avec Airflow ou dbt Cloud
-Migrer vers une vraie base cloud (Snowflake, BigQuery)
-
-
-### Long terme
-
-Ontologie formelle OWL/RDF pour raisonnement automatique
-Agent IA autonome qui génère des recommandations
-et les envoie directement aux équipes concernées
-
-
----
-
-## 6. Réponses aux questions d'acceptance
-
-### Q1 : Quelles routes méritent plus de budget Q4 ?
-→ Voir mart_decision_layer WHERE ontology_label = 'GrowthOpportunity'
-→ Critères : LF >= 80%, marge >= 15%, peu de concurrence
-→ Outil MCP : get_routes_budget_recommendation()
-
-### Q2 : Routes non rentables par problèmes opérationnels ?
-→ ontology_label = 'OperationallyUnprofitable'
-→ Critères : marge < 0% MAIS LF >= 65% ET délais opérationnels > météo
-→ Outil MCP : get_route_performance()
-
-### Q3 : Clients haute valeur à risque de churn ?
-→ dim_customers WHERE is_high_value = true AND is_at_risk = true
-→ ontology_label = 'HighValueAtRisk'
-→ Outil MCP : get_high_value_at_risk_customers()
-
-### Q4 : Segments pour offres premium ?
-→ PremiumUpgradeCandidate : standard + miles >= 5000
-→ AncillaryOfferTarget : bookings >= 2 + ancillary < 30%
-→ Outil MCP : get_upsell_segments()
-
-### Q5 : Comparer deux routes ?
-→ Outil MCP : compare_routes('R001', 'R009')
-→ Signaux financiers : revenue, marge, yield, RASK/CASK
-→ Signaux satisfaction : sentiment, plaintes, SLA
-
-### Q6 : Preuves d'une recommandation ?
-→ Outil MCP : get_unstructured_insights(category='delay')
-→ Croise commentaires NLP + données opérationnelles
-→ is_delay_complaint_confirmed valide la cohérence
-
-## Connexion Claude Desktop (MCP)
-
-### Prérequis
-- Claude Desktop installé (https://claude.ai/download)
-
-### Configuration
-1. Ouvre le fichier de config Claude Desktop :
-   %APPDATA%\Claude\claude_desktop_config.json
-
-2. Remplace le contenu par (Changer le chemin en fonction devotre hebergement):
-```json
-{
-  "mcpServers": {
-    "air-ci-analytics": {
-      "command": "C:\\Users\\Laptop Studio\\Documents\\Air Ci Project\\superset-env\\Scripts\\python.exe",
-      "args": [
-        "C:\\Users\\Laptop Studio\\Documents\\Air Ci Project\\mcp_server.py"
-      ],
-      "cwd": "C:\\Users\\Laptop Studio\\Documents\\Air Ci Project"
-    }
-  }
-}
-```
-
-3. Redémarre Claude Desktop
-4. Settings → Developer → air-ci-analytics → running
-
-### Questions de démonstration
-- "Which routes should receive more budget next quarter ?"
-- "Which customers are high value and at risk of churn ?"
-- "What complaints are driving low satisfaction on route R009 ?"
-- "Compare routes R001 and R009 using financial and satisfaction signals."
-- "Which customer segments should receive premium upgrade offers ?"
-
-### Architecture MCP
-Claude Desktop
-↓ MCP Protocol
-mcp_server.py (Python)
-↓ SQL queries
+### Pipeline overview
+Excel (Donn.xlsx — 12 sheets)
+↓  st_read() via DuckDB spatial extension
 DuckDB (air_ci.db)
+↓  on-run-start creates excel_source views
+dbt-fusion pipeline
+├── Layer 1: Staging (12 views)
+│     → Cast, clean, nullif, trim
+│     → Quality flags (is_id_missing, is_fk_missing)
+│     → Business columns and NLP keyword detection
+├── Layer 2: Marts — Dimensions (3 tables)
+│     → dim_date, dim_routes, dim_customers
+├── Layer 3: Marts — Facts (3 tables)
+│     → fct_flights, fct_bookings, fct_tickets
+├── Layer 4: Decision Layer (1 table)
+│     → mart_decision_layer (ontology rules)
+└── Layer 5: Semantic Layer (YAML)
+→ 13 KPIs formally defined
 ↓
-marts dbt (structured)
-+
-fct_tickets commentaires (unstructured NLP)
+Exposition
+├── Power BI (4-page dashboard via ODBC)
+└── MCP Server (8 Python tools → Claude Desktop)
 
-### 8 outils exposés
-1. get_global_kpis            → vue d ensemble airline
-2. get_route_performance      → performance par route
-3. get_routes_budget_recommendation → budget Q4
-4. get_complaints_by_route    → plaintes NLP par route
-5. compare_routes             → comparaison 2 routes
-6. get_high_value_at_risk_customers → churn risk
-7. get_upsell_segments        → offres premium
-8. get_unstructured_insights  → analyse commentaires
+### Technology choices
 
-### Données non structurées
-Le MCP expose les commentaires clients analysés via NLP :
-- sentiment_score : -1 a +1
-- primary_complaint_category : delay, baggage, refund...
-- urgency_level : critical, high, medium, low
-- is_high_value_critical_ticket : flag prioritaire
+| Component | Choice | Justification |
+|---|---|---|
+| Database | DuckDB | Reads Excel directly, no ETL needed, fast analytical queries |
+| Transformation | dbt-fusion | SQL-based, testable, documented pipeline |
+| Modeling | Star Schema | Simple, performant, readable for BI and AI tools |
+| Dashboard | Power BI | Native Windows, ODBC connector, professional output |
+| AI Interface | MCP Server + Claude Desktop | Open protocol, standard industry approach |
+
+### Unstructured data integration
+
+Customer comments are processed via a hybrid approach:
+
+1. Pre-calculated sentiment score (-1 to +1) from source data
+2. SQL keyword detection (10 complaint categories via LIKE patterns)
+3. Cross-validation with operational data:
+   is_delay_complaint_confirmed = ticket mentions delay
+   AND flight was actually delayed
+
+### Ontology layer
+
+mart_decision_layer applies explicit business inference rules
+classifying each route and customer into actionable categories:
+
+Routes: GrowthOpportunity · StrategicUnderperformer ·
+        OperationallyUnprofitable · DemandUnprofitable ·
+        RouteToDefend · StableRoute
+
+Customers: HighValueAtRisk · LoyaltyConversionTarget ·
+           PremiumUpgradeCandidate · AncillaryOfferTarget ·
+           ReactivationTarget · StableCustomer
+
+Each entity receives an ontology label and a concrete
+recommendation actionable by business teams.
+
+---
+
+## 3. Limitations
+
+### Technical
+- Python 3.14 is incompatible with Apache Superset
+  → Power BI used as alternative dashboard tool
+- dbt-fusion 2.0.0-preview has minor syntax differences
+  from dbt-core standard
+  → external_sources in profiles.yml not yet supported
+  → workaround: on-run-start creates Excel views manually
+- Semantic Layer cannot be fully validated locally
+  → requires dbt Cloud for MetricFlow validation
+
+### Data
+- Average load factor of 16.77% is unusually low
+  → likely due to partial booking data coverage
+  → does not affect pipeline correctness
+- Cargo data covers only 6 shipments across 3 flights
+  → insufficient for route-level cargo optimization analysis
+- No long historical data → seasonal trend analysis is limited
+- Sentiment scores are pre-calculated externally
+  → no custom French NLP model developed
+
+### Modeling
+- No SCD Type 2 implemented on dim_customers
+  → customer segment changes are not historized
+- No formal dbt tests (unique, not_null, relationships)
+  → data quality relies on staging flags only
+- Ontology rules are fixed thresholds
+  → no ML model for dynamic churn prediction
+
+---
+
+## 4. Next Steps
+
+### Short term (< 1 month)
+- Add dbt tests: unique + not_null on all PKs,
+  relationships on all FKs, accepted_values on statuses
+- Implement SCD Type 2 on dim_customers
+  to track segment and loyalty tier changes over time
+- Enrich NLP with CamemBERT (French language model)
+  for more accurate complaint classification
+
+### Medium term (1–3 months)
+- Replace static Excel with real-time APIs:
+  weather data (OpenWeatherMap),
+  competitor fares (Amadeus API)
+- Build a churn prediction model using scikit-learn
+  RandomForest on customer behavioral features
+- Automate pipeline scheduling with Airflow or dbt Cloud
+
+### Long term (3–6 months)
+- Migrate from DuckDB local to Snowflake or BigQuery
+  for multi-user access and production reliability
+- Implement formal OWL/RDF ontology
+  for automated reasoning beyond SQL rules
+- Build an autonomous AI agent that generates
+  weekly recommendations and distributes them
+  to operational teams via Slack or email
+
+---
+
+## 5. Modeling Diagram
+
+See DATA_DICTIONARY.md for the full column-level
+documentation of each model.
+
+The Star Schema diagram is available in:
+screenshots/modeling_diagram.png
+     dim_date
+        │ date_id
+        │
+dim_routes ─┤            ┌── fct_bookings
+route_id  └── fct_flights ── fct_tickets
+│
+mart_decision_layer
+(routes + customers ontology)
+│
+dim_customers
+customer_id
+
+---
+
+## 6. Acceptance Questions — Quick Reference
+
+| Question | Model | MCP Tool |
+|---|---|---|
+| Routes to budget next quarter? | mart_decision_layer | get_routes_budget_recommendation() |
+| Routes unprofitable operationally? | fct_flights | get_route_performance() |
+| High-value customers at risk? | dim_customers | get_high_value_at_risk_customers() |
+| Segments for premium offers? | mart_decision_layer | get_upsell_segments() |
+| Compare two routes? | fct_flights + fct_tickets | compare_routes('R001','R009') |
+| Evidence behind a recommendation? | fct_tickets | get_unstructured_insights() |
