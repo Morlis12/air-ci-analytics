@@ -40,7 +40,6 @@ models:
       +materialized: view
       +schema: staging
 
-    # Rétablissement de l'arborescence standard sous le dossier marts
     marts:
       +materialized: table
       +schema: marts

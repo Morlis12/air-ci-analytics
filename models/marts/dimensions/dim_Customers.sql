@@ -102,7 +102,7 @@ final as (
         end                                             as customer_sentiment_label,
 
         -- =========================================
-        -- SCORE DE VALEUR CLIENT (CLV proxy)
+        -- SCORE DE VALEUR CLIENT (CLV)
         -- =========================================
         round(
             coalesce(l.total_loyalty_value_usd, 0)

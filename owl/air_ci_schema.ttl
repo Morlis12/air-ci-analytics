@@ -1,0 +1,194 @@
+@prefix air: <http://airci.com/ontology#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+air:AncillaryOfferTarget a owl:Class ;
+    rdfs:label "Client cible pour les offres ancillaires"@fr ;
+    rdfs:comment "bookings>=2 ET ancillary<30% ET sentiment>=-0.2. SQL: WHEN total_bookings >= 2 AND ancillary_attach_rate < 0.3 AND avg_sentiment_score >= -0.2."@fr ;
+    rdfs:subClassOf air:Customer .
+
+air:GrowthOpportunity a owl:Class ;
+    rdfs:label "Route à fort potentiel de croissance"@fr ;
+    rdfs:comment "LF>=80% ET marge>=15% ET concurrents<=1. SQL: WHEN avg_load_factor_pct >= 80 AND avg_margin_pct >= 15 AND nb_competitors <= 1."@fr ;
+    rdfs:subClassOf air:Route ;
+    owl:disjointWith air:DemandUnprofitable,
+        air:StrategicUnderperformer .
+
+air:HighValueAtRisk a owl:Class ;
+    rdfs:label "Client haute valeur à risque de churn"@fr ;
+    rdfs:comment "is_high_value=true ET (sentiment<-0.3 OU critical_tickets>=1 OU inactif>90j). SQL: WHEN is_high_value = true AND (sentiment < -0.3 OR critical_tickets >= 1 OR days_inactive > 90)."@fr ;
+    rdfs:subClassOf air:Customer ;
+    owl:disjointWith air:StableCustomer .
+
+air:LoyaltyConversionTarget a owl:Class ;
+    rdfs:label "Client à convertir au programme fidélité"@fr ;
+    rdfs:comment "Non-membre ET bookings>=2 ET revenue>=300 USD. SQL: WHEN is_loyalty_member = false AND total_bookings >= 2 AND total_revenue >= 300."@fr ;
+    rdfs:subClassOf air:Customer .
+
+air:OperationallyUnprofitable a owl:Class ;
+    rdfs:label "Route non rentable par problèmes opérationnels"@fr ;
+    rdfs:comment "marge<0% ET LF>=65% ET retards opérationnels > météo. SQL: WHEN avg_margin_pct < 0 AND avg_load_factor_pct >= 65."@fr ;
+    rdfs:subClassOf air:Route .
+
+air:PremiumUpgradeCandidate a owl:Class ;
+    rdfs:label "Client éligible à une offre premium"@fr ;
+    rdfs:comment "Segment standard ET miles>=5000 ET ancillary>=50%. SQL: WHEN customer_segment = 'standard' AND total_miles >= 5000 AND ancillary_attach_rate >= 0.5."@fr ;
+    rdfs:subClassOf air:Customer .
+
+air:ReactivationTarget a owl:Class ;
+    rdfs:label "Client inactif à réactiver"@fr ;
+    rdfs:comment "inactif>180j ET au moins 1 booking historique. SQL: WHEN days_since_last_flight > 180 AND total_bookings >= 1."@fr ;
+    rdfs:subClassOf air:Customer .
+
+air:RouteToDefend a owl:Class ;
+    rdfs:label "Route rentable sous pression concurrentielle"@fr ;
+    rdfs:comment "marge>=10% ET concurrents>=3 ET sentiment<-0.3. SQL: WHEN avg_margin_pct >= 10 AND nb_competitors >= 3 AND avg_sentiment_score < -0.3."@fr ;
+    rdfs:subClassOf air:Route .
+
+air:StableRoute a owl:Class ;
+    rdfs:label "Route stable sans signal particulier"@fr ;
+    rdfs:comment "Défaut — aucun autre label applicable. SQL: ELSE 'StableRoute'."@fr ;
+    rdfs:subClassOf air:Route .
+
+air:hasAncillaryAttachRate a owl:DatatypeProperty ;
+    rdfs:comment "% de réservations avec achat ancillaire. Pour AncillaryOfferTarget et PremiumUpgradeCandidate."@fr ;
+    rdfs:domain air:Customer ;
+    rdfs:range xsd:decimal .
+
+air:hasAvgSentimentScore a owl:DatatypeProperty ;
+    rdfs:comment "AVG sentiment des tickets sur cette route. Pour RouteToDefend."@fr ;
+    rdfs:domain air:Route ;
+    rdfs:range xsd:decimal .
+
+air:hasCompetitor a owl:ObjectProperty ;
+    rdfs:comment "Compagnie concurrente sur cette route."@fr ;
+    rdfs:domain air:Route ;
+    rdfs:range air:Airline .
+
+air:hasCriticalTickets a owl:DatatypeProperty ;
+    rdfs:comment "Nombre de tickets urgency=critical. Pour is_at_risk."@fr ;
+    rdfs:domain air:Customer ;
+    rdfs:range xsd:integer .
+
+air:hasCustomerKey a owl:DatatypeProperty ;
+    rdfs:comment "dim_customers.customer_id."@fr ;
+    rdfs:domain air:Customer ;
+    rdfs:range xsd:string .
+
+air:hasCustomerSegment a owl:DatatypeProperty ;
+    rdfs:comment "standard / business / premium."@fr ;
+    rdfs:domain air:Customer ;
+    rdfs:range xsd:string .
+
+air:hasDaysSinceLastFlight a owl:DatatypeProperty ;
+    rdfs:comment "Jours depuis le dernier vol. >180j = ReactivationTarget."@fr ;
+    rdfs:domain air:Customer ;
+    rdfs:range xsd:integer .
+
+air:hasDelayRatePct a owl:DatatypeProperty ;
+    rdfs:comment "% vols retardés. >30% = problème opérationnel."@fr ;
+    rdfs:domain air:Route ;
+    rdfs:range xsd:decimal .
+
+air:hasDestination a owl:ObjectProperty ;
+    rdfs:comment "Aéroport d'arrivée."@fr ;
+    rdfs:domain air:Route ;
+    rdfs:range air:Airport .
+
+air:hasLoadFactorPct a owl:DatatypeProperty ;
+    rdfs:comment "AVG(fct_flights.load_factor_pct). Seuils: <60% bas, >85% haut."@fr ;
+    rdfs:domain air:Route ;
+    rdfs:range xsd:decimal .
+
+air:hasMarginPct a owl:DatatypeProperty ;
+    rdfs:comment "AVG(fct_flights.flight_margin_pct). <0% = non rentable."@fr ;
+    rdfs:domain air:Route ;
+    rdfs:range xsd:decimal .
+
+air:hasNbCompetitors a owl:DatatypeProperty ;
+    rdfs:comment "dim_routes.nb_competitors. 0=monopole."@fr ;
+    rdfs:domain air:Route ;
+    rdfs:range xsd:integer .
+
+air:hasOrigin a owl:ObjectProperty ;
+    rdfs:comment "Aéroport de départ. = dim_routes.origin_airport_code."@fr ;
+    rdfs:domain air:Route ;
+    rdfs:range air:Airport .
+
+air:hasRouteKey a owl:DatatypeProperty ;
+    rdfs:comment "dim_routes.route_key. Ex: ABJ-CDG."@fr ;
+    rdfs:domain air:Route ;
+    rdfs:range xsd:string .
+
+air:hasSentimentScore a owl:DatatypeProperty ;
+    rdfs:comment "dim_customers.avg_sentiment_score. Échelle -1 à +1."@fr ;
+    rdfs:domain air:Customer ;
+    rdfs:range xsd:decimal .
+
+air:hasTotalBookings a owl:DatatypeProperty ;
+    rdfs:comment "Nombre total de réservations. Pour LoyaltyConversionTarget."@fr ;
+    rdfs:domain air:Customer ;
+    rdfs:range xsd:integer .
+
+air:hasTotalMiles a owl:DatatypeProperty ;
+    rdfs:comment "dim_customers.total_miles. Pour PremiumUpgradeCandidate."@fr ;
+    rdfs:domain air:Customer ;
+    rdfs:range xsd:integer .
+
+air:hasTotalRevenue a owl:DatatypeProperty ;
+    rdfs:comment "Revenu total généré par ce client. USD."@fr ;
+    rdfs:domain air:Customer ;
+    rdfs:range xsd:decimal .
+
+air:isAtRisk a owl:DatatypeProperty ;
+    rdfs:comment "dim_customers.is_at_risk. True si sentiment < -0.3 OU critical_tickets >= 1 OU inactif > 90j."@fr ;
+    rdfs:domain air:Customer ;
+    rdfs:range xsd:boolean .
+
+air:isHighValue a owl:DatatypeProperty ;
+    rdfs:comment "dim_customers.is_high_value. True si segment premium OU tier Gold/Platinum OU miles >= 10000."@fr ;
+    rdfs:domain air:Customer ;
+    rdfs:range xsd:boolean .
+
+air:isLoyaltyMember a owl:DatatypeProperty ;
+    rdfs:comment "True si loyalty_tier NOT IN (None, null, ''). Pour LoyaltyConversionTarget."@fr ;
+    rdfs:domain air:Customer ;
+    rdfs:range xsd:boolean .
+
+air:isStrategicRoute a owl:DatatypeProperty ;
+    rdfs:comment "dim_routes.is_strategic_route."@fr ;
+    rdfs:domain air:Route ;
+    rdfs:range xsd:boolean .
+
+air:Airline a owl:Class ;
+    rdfs:label "Compagnie aérienne"@fr ;
+    rdfs:comment "Classe de contexte. Permet hasCompetitor."@fr .
+
+air:DemandUnprofitable a owl:Class ;
+    rdfs:label "Route non rentable par manque de demande"@fr ;
+    rdfs:comment "marge<0% ET LF<65%. SQL: WHEN avg_margin_pct < 0 AND avg_load_factor_pct < 65."@fr ;
+    rdfs:subClassOf air:Route .
+
+air:StableCustomer a owl:Class ;
+    rdfs:label "Client stable sans signal particulier"@fr ;
+    rdfs:comment "Défaut — aucun autre label applicable. SQL: ELSE 'StableCustomer'."@fr ;
+    rdfs:subClassOf air:Customer .
+
+air:StrategicUnderperformer a owl:Class ;
+    rdfs:label "Route stratégique sous-performante"@fr ;
+    rdfs:comment "is_strategic=true ET (marge<10% OU retard>30%). SQL: WHEN is_strategic_route = true AND (avg_margin_pct < 10 OR delay_rate_pct > 30)."@fr ;
+    rdfs:subClassOf air:Route .
+
+air:Airport a owl:Class ;
+    rdfs:label "Aéroport"@fr ;
+    rdfs:comment "Classe de contexte. Permet hasOrigin et hasDestination."@fr .
+
+air:Route a owl:Class ;
+    rdfs:label "Route aérienne"@fr ;
+    rdfs:comment "Équivalent de la table main_marts.dim_routes."@fr .
+
+air:Customer a owl:Class ;
+    rdfs:label "Client Air CI"@fr ;
+    rdfs:comment "Équivalent de la table main_marts.dim_customers."@fr .
+
