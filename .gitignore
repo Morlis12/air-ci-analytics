@@ -19,6 +19,11 @@ target/
 dbt_packages/
 logs/
 
+# OWL - artefacts de données générés (régénérables via 01→02→03)
+# Le schéma (air_ci_schema.ttl) reste versionné : c'est du vocabulaire, pas des données
+owl/air_ci_data.ttl
+owl/air_ci_classified.ttl
+
 # Config personnelle
 profiles.yml
 claude_desktop_config.json
