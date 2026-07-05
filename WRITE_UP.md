@@ -6,9 +6,10 @@ This project delivers a full analytics engineering pipeline
 for Air CI, a fictional airline based in Abidjan (ABJ),
 Côte d'Ivoire. The pipeline covers data ingestion from
 Excel, transformation via dbt, dimensional modeling,
-a decision-oriented dashboard in Power BI, and an
-agentic AI interface through a custom MCP Server
-connected to Claude Desktop.
+a decision-oriented dashboard in Power BI, an agentic AI
+interface through a custom MCP Server connected to Claude
+Desktop, and a formal OWL/RDF ontology layer for semantic
+interoperability with external systems.
 
 ---
 
@@ -45,8 +46,9 @@ All thresholds are grounded in industry standards:
 | High load factor | >= 85% | Airline industry benchmark |
 | Ticket SLA | 3 days | Customer service standard |
 | Inactive customer | > 180 days | CRM industry standard |
-| At-risk customer | sentiment < -0.3 OR critical tickets >= 1 | Business rule |
+| At-risk customer | sentiment < -0.3 OR critical tickets >= 1 OR inactive > 90d | Business rule |
 | Ancillary attach rate target | 20–30% | Airline industry benchmark |
+| CLV proxy | loyalty_value_usd + (total_miles * 0.01) | 0.01 USD/mile standard |
 
 ---
 
@@ -67,13 +69,14 @@ dbt-fusion pipeline
 ├── Layer 3: Marts — Facts (3 tables)
 │     → fct_flights, fct_bookings, fct_tickets
 ├── Layer 4: Decision Layer (1 table)
-│     → mart_decision_layer (ontology rules)
+│     → mart_decision_layer (SQL ontological labels)
 └── Layer 5: Semantic Layer (YAML)
-→ 13 KPIs formally defined
+→ 13 KPIs formally defined (MetricFlow)
 ↓
 Exposition
 ├── Power BI (4-page dashboard via ODBC)
-└── MCP Server (8 Python tools → Claude Desktop)
+├── MCP Server (8 SQL tools + 3 OWL tools → Claude Desktop)
+└── OWL Ontology (air_ci_classified.ttl — NEW)
 
 ### Technology choices
 
@@ -84,6 +87,7 @@ Exposition
 | Modeling | Star Schema | Simple, performant, readable for BI and AI tools |
 | Dashboard | Power BI | Native Windows, ODBC connector, professional output |
 | AI Interface | MCP Server + Claude Desktop | Open protocol, standard industry approach |
+| Ontology | OWL/RDF — rdflib | W3C standard, enables owl:sameAs federation and SPARQL cross-domain queries |
 
 ### Unstructured data integration
 
@@ -95,9 +99,9 @@ Customer comments are processed via a hybrid approach:
    is_delay_complaint_confirmed = ticket mentions delay
    AND flight was actually delayed
 
-### Ontology layer
+### SQL ontology layer (mart_decision_layer)
 
-mart_decision_layer applies explicit business inference rules
+mart_decision_layer applies explicit SQL CASE WHEN rules
 classifying each route and customer into actionable categories:
 
 Routes: GrowthOpportunity · StrategicUnderperformer ·
@@ -108,8 +112,43 @@ Customers: HighValueAtRisk · LoyaltyConversionTarget ·
            PremiumUpgradeCandidate · AncillaryOfferTarget ·
            ReactivationTarget · StableCustomer
 
-Each entity receives an ontology label and a concrete
-recommendation actionable by business teams.
+Each entity receives a label and a concrete recommendation
+actionable by business teams.
+
+### OWL ontology layer (NEW)
+
+A formal OWL/RDF ontology is generated in parallel from the
+dbt marts, addressing the key limitation of mart_decision_layer:
+SQL labels are not machine-readable outside DuckDB and cannot
+be shared with external systems without ETL.
+
+| File | Role | Output |
+|---|---|---|
+| owl/01_schema.py | OWL classes, DatatypeProperty, ObjectProperty, disjointWith axioms | air_ci_schema.ttl |
+| owl/02_export.py | Reads dim_routes + dim_customers from DuckDB → RDF individuals | air_ci_data.ttl |
+| owl/03_classify.py | Applies SPARQL CONSTRUCT rules → infers labels | air_ci_classified.ttl |
+
+The ontology models the same 6 route labels and 6 customer labels
+as mart_decision_layer, but expressed as SPARQL CONSTRUCT rules
+on a graph shareable with any OWL-compatible system.
+
+Key additions over the SQL layer:
+- `owl:sameAs` federation with external systems (IATA, ECOWAS
+  aviation authority) without ETL
+- Logical consistency verification via `disjointWith` axioms —
+  detects contradictions that SQL silently ignores
+- Full reasoning trace via the `explain_why_classified()` MCP tool —
+  exposes exactly which metrics triggered which label
+- Three new MCP tools reading the OWL graph:
+  `get_owl_route_classification()`,
+  `get_owl_customer_classification()`,
+  `explain_why_classified(entity_id, type)`
+
+**Note on OWL-RL reasoner:** the owlrl library (OWL-RL profile)
+does not handle numeric datatype facet comparisons
+(xsd:minInclusive combined) — a documented W3C limitation.
+SPARQL CONSTRUCT rules are used instead, which is the standard
+production approach used by Stardog and GraphDB.
 
 ---
 
@@ -122,8 +161,13 @@ recommendation actionable by business teams.
   from dbt-core standard
   → external_sources in profiles.yml not yet supported
   → workaround: on-run-start creates Excel views manually
+  → Excel paths hardcoded in sources.yml and dbt_project.yml
+    (standard pattern would use profiles.yml — documented)
 - Semantic Layer cannot be fully validated locally
   → requires dbt Cloud for MetricFlow validation
+- OWL-RL reasoner does not handle numeric datatype facet
+  comparisons → SPARQL CONSTRUCT rules used instead
+  (standard production approach)
 
 ### Data
 - Average load factor of 16.77% is unusually low
@@ -140,8 +184,10 @@ recommendation actionable by business teams.
   → customer segment changes are not historized
 - No formal dbt tests (unique, not_null, relationships)
   → data quality relies on staging flags only
-- Ontology rules are fixed thresholds
+- SQL ontology rules are fixed thresholds
   → no ML model for dynamic churn prediction
+- OWL ontology currently covers Route and Customer entities only
+  → Flight-level ontology not yet modeled
 
 ---
 
@@ -154,23 +200,27 @@ recommendation actionable by business teams.
   to track segment and loyalty tier changes over time
 - Enrich NLP with CamemBERT (French language model)
   for more accurate complaint classification
+- Add owl:sameAs links to IATA airport codes database
+  for full interoperability
 
 ### Medium term (1–3 months)
 - Replace static Excel with real-time APIs:
   weather data (OpenWeatherMap),
   competitor fares (Amadeus API)
 - Build a churn prediction model using scikit-learn
-  RandomForest on customer behavioral features
+  RandomForest on customer behavioral features from
+  dim_customers + fct_bookings
 - Automate pipeline scheduling with Airflow or dbt Cloud
+- Expose SPARQL endpoint for the OWL ontology
+  (Stardog or GraphDB)
 
 ### Long term (3–6 months)
 - Migrate from DuckDB local to Snowflake or BigQuery
   for multi-user access and production reliability
-- Implement formal OWL/RDF ontology
-  for automated reasoning beyond SQL rules
-- Build an autonomous AI agent that generates
-  weekly recommendations and distributes them
-  to operational teams via Slack or email
+- Federate with IATA and ECOWAS aviation ontologies
+  via owl:sameAs
+- Build an autonomous AI agent generating weekly
+  recommendations via n8n + MCP Server
 
 ---
 
@@ -184,15 +234,19 @@ screenshots/modeling_diagram.png
      dim_date
         │ date_id
         │
-dim_routes ─┤            ┌── fct_bookings
+dim_routes ─┤              ┌── fct_bookings
 route_id  └── fct_flights ── fct_tickets
 │
 mart_decision_layer
-(routes + customers ontology)
+(SQL labels — routes + customers)
+│
+OWL ontology layer (NEW)
+air_ci_classified.ttl
+(SPARQL CONSTRUCT — same labels,
+formally machine-readable)
 │
 dim_customers
 customer_id
-
 ---
 
 ## 6. Acceptance Questions — Quick Reference
@@ -205,3 +259,5 @@ customer_id
 | Segments for premium offers? | mart_decision_layer | get_upsell_segments() |
 | Compare two routes? | fct_flights + fct_tickets | compare_routes('R001','R009') |
 | Evidence behind a recommendation? | fct_tickets | get_unstructured_insights() |
+| Why is R009 GrowthOpportunity? (NEW) | air_ci_classified.ttl | explain_why_classified('R009') |
+| OWL customer classification? (NEW) | air_ci_classified.ttl | get_owl_customer_classification() |
